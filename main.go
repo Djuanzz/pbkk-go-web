@@ -1,15 +1,14 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
-	"log"
 
 	"github.com/Djuanzz/pbkk-go-web/config"
 	_ "github.com/joho/godotenv/autoload"
+	"gorm.io/gorm"
 )
 
-var db *sql.DB // Variabel db dideklarasikan secara global
+var db *gorm.DB
 
 type Album struct {
 	ID     int
@@ -18,90 +17,39 @@ type Album struct {
 	Price  float32
 }
 
-func addAlbum(alb Album) (int64, error) {
-	result, err := db.Exec("INSERT INTO albums (title, artist, price) VALUES (?, ?, ?)", alb.Title, alb.Artist, alb.Price)
-	if err != nil {
-		return 0, fmt.Errorf("addAlbum: %v", err)
+func addAlbum(alb Album) (int, error) {
+	result := db.Create(&alb)
+	if result.Error != nil {
+		return 0, result.Error
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("addAlbum: %v", err)
-	}
-	return id, nil
+	return alb.ID, nil
 }
 
-func albumsByArtist(name string) ([]Album, error) {
-	// An albums slice to hold data from returned rows.
-	var albums []Album
-
-	rows, err := db.Query("SELECT * FROM albums WHERE artist = ?", name)
-	if err != nil {
-		return nil, fmt.Errorf("albumsByArtist %q: %v", name, err)
-	}
-	defer rows.Close()
-	// Loop through rows, using Scan to assign column data to struct fields.
-	for rows.Next() {
-		var alb Album
-		if err := rows.Scan(&alb.ID, &alb.Title, &alb.Artist, &alb.Price); err != nil {
-			return nil, fmt.Errorf("albumsByArtist %q: %v", name, err)
-		}
-		albums = append(albums, alb)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("albumsByArtist %q: %v", name, err)
-	}
-	return albums, nil
-}
-
-func albumByID(id int64) (Album, error) {
-	// An album to hold data from the returned row.
+func albumByID(id int) (Album, error) {
 	var alb Album
-
-	row := db.QueryRow("SELECT * FROM albums WHERE id = ?", id)
-	if err := row.Scan(&alb.ID, &alb.Title, &alb.Artist, &alb.Price); err != nil {
-		if err == sql.ErrNoRows {
-			return alb, fmt.Errorf("albumsById %d: no such album", id)
-		}
-		return alb, fmt.Errorf("albumsById %d: %v", id, err)
+	result := db.First(&alb, id)
+	if result.Error != nil {
+		return alb, result.Error
 	}
 	return alb, nil
 }
 
 func main() {
-	fmt.Println("Adnan Abdullah Juan | 5025221155")
-	fmt.Println("Golang Web Application")
+	db = config.ConnectDatabase()
 
-	// --- SESI DATABASE
-
-	db = config.ConnectDb()
-	defer db.Close()
-
-	// --- CREATE ALBUM
-	// newAlbum := Album{
-	// 	Title:  "Go Lang Greatest Hits",
-	// 	Artist: "John Doe",
-	// 	Price:  29.99,
-	// }
-
-	// albumID, err := addAlbum(newAlbum)
+	// Add an album to the database.
+	// alb := Album{Title: "The Modern Sound of Betty Carter", Artist: "Betty Carter", Price: 49.95}
+	// id, err := addAlbum(alb)
 	// if err != nil {
-	// 	log.Fatalf("Gagal menambahkan album: %v", err)
+	// 	panic(err)
 	// }
+	// println("New album ID is", id)
 
-	// fmt.Printf("Album baru berhasil ditambahkan dengan ID: %d\n", albumID)
-
-	// --- READ ALBUM
-	albums, err := albumsByArtist("John Doe")
+	// Retrieve an album from the database.
+	alb, err := albumByID(2)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-	fmt.Printf("Albums found: %v\n", albums)
-
-	// --- READ ALBUM BY ID
-	alb, err := albumByID(1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Album found: %v\n", alb)
+	fmt.Println("Album is", alb)
 
 }
