@@ -39,6 +39,42 @@ func getUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": users})
 }
 
+func getUsersHTML(c *gin.Context) {
+	var users []model.User
+
+	if err := db.Find(&users).Error; err != nil {
+		c.HTML(http.StatusInternalServerError, "users.html", gin.H{
+			"error": "Failed to fetch users",
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "users.html", users)
+}
+
+func showAddUserForm(c *gin.Context) {
+	c.HTML(http.StatusOK, "addUser.html", nil)
+}
+
+func addUser(c *gin.Context) {
+	var user model.User
+
+	// Bind form values ke struct user
+	user.Email = c.PostForm("email")
+	user.Password = c.PostForm("password")
+	user.Role = c.PostForm("role")
+
+	// Simpan ke database
+	if err := db.Create(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.HTML(http.StatusOK, "addUser.html", gin.H{
+		"message": "User successfully added!",
+	})
+}
+
 func deleteUser(c *gin.Context) {
 	id := c.Param("id")
 	var user model.User
@@ -84,11 +120,18 @@ func main() {
 	model.Migration(db)
 
 	router := gin.Default()
+
+	router.LoadHTMLGlob("page/*")
+
 	router.GET("/api", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "Hello World!",
 		})
 	})
+
+	router.GET("/users", getUsersHTML)
+	router.GET("/users/add", showAddUserForm)
+	router.POST("/users/add", addUser)
 
 	router.POST("/api/user", createUser)
 	router.GET("/api/user", getUsers)
